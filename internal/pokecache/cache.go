@@ -11,11 +11,14 @@ type cacheEntry struct {
 }
 
 type Cache struct {
-	mu      sync.Mutex
+	mu      *sync.Mutex
 	entries map[string]cacheEntry
 }
 
 func (c *Cache) Add(key string, val []byte) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	c.entries[key] = cacheEntry{
 		createdAt: time.Now(),
 		val:       val,
@@ -23,6 +26,9 @@ func (c *Cache) Add(key string, val []byte) {
 }
 
 func (c *Cache) Get(key string) (val []byte, found bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	entry, exists := c.entries[key]
 	if exists {
 		return entry.val, exists
@@ -46,14 +52,14 @@ func (c *Cache) reapLoop(interval time.Duration) {
 	}
 }
 
-func NewCache(interval time.Duration) *Cache {
+func NewCache(interval time.Duration) Cache {
 	c := Cache{
-		mu:      sync.Mutex{},
+		mu:      &sync.Mutex{},
 		entries: make(map[string]cacheEntry),
 	}
 
 	// start the reap loop concurrently
 	go c.reapLoop(interval)
 
-	return &c
+	return c
 }
